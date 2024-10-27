@@ -89,6 +89,11 @@ public class Utils
             return goToType;
         }
 
+        public void Stop()
+        {
+            _arrived = true;
+        }
+
         public async Task Start(float drivingSpeed = -1f)
         {
             await BaseScript.Delay(_timeout);
@@ -127,6 +132,11 @@ public class Utils
         {
             _drivingSpeed = speed;
             Drive();
+        }
+
+        public void SetDrivingStyle(int style)
+        {
+            _driveStyle = style;
         }
 
         public void SetRunDistance(float distance)
@@ -622,23 +632,42 @@ public class Utils
         veh.Heading = closestPos.W;
         veh.IsEngineRunning = false;
     }
-
+    static Vector3 pointOffset = Vector3.Zero;
     public static void StopPointingCamera()
     {
+        pointOffset = Vector3.Zero;
         World.RenderingCamera = null;
     }
 
     public static async Task PointCameraAtEntity(Entity ent)
     {
+        Entity currentEntity = Game.PlayerPed;
+        if (Game.PlayerPed.IsInVehicle())
+        {
+            currentEntity = Game.PlayerPed.CurrentVehicle;
+        }
         World.RenderingCamera = null;
         var currentCamera = World.RenderingCamera;
+        var camOffset = currentCamera.GetPositionOffset(ent.Position) * currentEntity.Model.GetDimensions().Length();
         var camHandle = API.CreateCameraWithParams((uint)API.GetHashKey("DEFAULT_SCRIPTED_CAMERA"),
             currentCamera.Position.X,
             currentCamera.Position.Y, currentCamera.Position.Z, currentCamera.Rotation.X, currentCamera.Rotation.Y,
-            currentCamera.Rotation.Z, 45f, true, 2);
-        API.AttachCamToEntity(camHandle, Game.PlayerPed.Handle, 0f, 2f, 0f, true);
-        API.RenderScriptCams(true, true, 1000, true, true);
-        API.PointCamAtEntity(camHandle, ent.Handle, 0f, 0f, 0f, true);
+            currentCamera.Rotation.Z, currentCamera.FieldOfView + 40, true, 2);
+        API.AttachCamToEntity(camHandle, currentEntity.Handle, camOffset.X, camOffset.Y, camOffset.Z, true);
+        API.RenderScriptCams(true, true, 3000, true, true);
+        var offset = ent.GetPositionOffset(currentCamera.Position);
+        offset /= offset;
+        offset *= 4;
+        pointOffset = offset;
+        while (pointOffset != Vector3.Zero)
+        {
+            offset = ent.GetPositionOffset(currentCamera.Position);
+            offset /= offset;
+            offset *= 4;
+            pointOffset = offset;
+            API.PointCamAtEntity(camHandle, ent.Handle, offset.X, offset.Y, 0f, true);
+            await BaseScript.Delay(2000);
+        }
     }
     
     public static async Task<Vector4> HandlePark(Vehicle vehicle, float radius = 50f, int driveStyle = 524732)
@@ -725,6 +754,7 @@ public class Utils
 {scriptName} has experienced an error {source}!
 Error Message: {ex.Message}
 Unique Error ID: {guid}
+Time Captured: {DateTime.Now.ToShortTimeString()}
 ", true);
         Errors[guid] = new()
         {
@@ -1293,7 +1323,7 @@ Unique Error ID: {guid}
         return seat;
     }
 
-    public static async void AutoKeepTaskEnterVehicle(Ped ped, Vehicle vehicle, VehicleSeat seat, int msInterval)
+    public static async void AutoKeepTaskEnterVehicle(Ped ped, Vehicle vehicle, VehicleSeat seat, int msInterval, float speed = 0f)
     {
         Vector3 pedPos = Vector3.Zero;
         int times = 0;
@@ -1317,7 +1347,7 @@ Unique Error ID: {guid}
             {
                 ped.Task.ClearAllImmediately();
                 await BaseScript.Delay(500);
-                ped.Task.EnterVehicle(vehicle, seat);
+                ped.Task.EnterVehicle(vehicle, seat, speed: 0f);
             }
         }
     }
