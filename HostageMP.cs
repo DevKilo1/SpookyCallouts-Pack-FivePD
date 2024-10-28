@@ -21,9 +21,9 @@ public class Hostage : Callout
     private Vector3 beforeTrap = new Vector3(-531.33282470703f, 76.233497619629f, 56.745029449463f);
 
     private Vector4 busTrapPos = new Vector4(-475.83941650391f, 68.26904296875f, 58.427417755127f, 0.96272855997086f);
-    private Vector4 trashSpawn = new Vector4(-503.64971923828f, 84.364524841309f, 56.138195037842f, 90.352363586426f);
+    private Vector4 trashSpawn = new Vector4(-537.0322265625f, 83.865348815918f, 57.970115661621f, 179.3235168457f);
 
-    private Vector4 trashmanPos = new Vector4(-497.53311157227f, 79.880187988281f, 55.922142028809f, 21.68872833252f);
+    private Vector4 trashmanPos = new Vector4(-531.43695068359f, 86.500274658203f, 58.741641998291f, 347.7077331543f);
 
     private Vector3 duringTrap = new Vector3(-469.97265625f, 73.232643127441f, 58.661659240723f);
 
@@ -31,7 +31,7 @@ public class Hostage : Callout
 
     private Vector3 afterTrap = new Vector3(-463.52752685547f, 64.177223205566f, 58.661483764648f);
 
-    private Vector4 trashTrapPos = new Vector4(-537.54956054688f, 77.054161071777f, 56.136791229248f, 173.67950439453f);
+    private Vector4 trashTrapPos = new Vector4(-535.81506347656f, 91.156410217285f, 60.266639709473f, 172.18472290039f);
 
     private Guid _guid = new("7265A657-17F2-430F-8C4B-C851D8BF83F9");
 
@@ -151,7 +151,7 @@ public class Hostage : Callout
     public override async void OnStart(Ped closest)
     {
         driver = await Utils.SpawnPedOneSync(PedHash.Clown01SMY, await Utils.GetSpawnPositionPlayerCantSee(Location));
-        van = await Utils.SpawnVehicleOneSync(VehicleHash.Speedo2,
+        van = await Utils.SpawnVehicleOneSync(VehicleHash.Asea,
             driver.Position.Around(5f).ClosestParkedCarPlacement());
         var b = driver.AttachBlip();
         SetState<bool>(driver, "Spooky:HostageMP:Blip", true, true);
@@ -214,17 +214,17 @@ public class Hostage : Callout
             wp.Stop();
         if (!once)
         {
-            van.Position = beforeTrap.Around(100f);
-            Game.PlayerPed.CurrentVehicle.Position = van.Position.Around(5f);
+            van.Position = beforeTrap.Around(100f).ClosestParkedCarPlacement();
+            Game.PlayerPed.CurrentVehicle.Position = van.Position.Around(5f).ClosestParkedCarPlacement();
             once = true;
         }
         
         
         Debug.WriteLine("Sight gained");
-        wp = new Utils.Waypoint(beforeTrap, van, refreshInterval: 2000, bufferDistance: 5f);
+        wp = new Utils.Waypoint(beforeTrap, van, refreshInterval: 2000, bufferDistance: 12f);
         wp.Start();
         wp.SetDrivingSpeed(20f);
-        wp.SetDrivingStyle(786748);
+        wp.SetDrivingStyle(317);
         wp.Mark(MarkerType.ThickChevronUp);
         bool waiting = true;
         new Action(async () =>
@@ -253,13 +253,14 @@ public class Hostage : Callout
             var wp = new Utils.Waypoint((Vector3)trashTrapPos, trash, bufferDistance: 2f, refreshInterval: 5000);
             wp.SetDrivingSpeed(30f);
             wp.Start();
-            await wp.Wait();
-            trash.IsPositionFrozen = true;
+            await Utils.WaitUntilPedIsAtPosition((Vector3)trashTrapPos, Game.PlayerPed, 5f);
             trash.Position = (Vector3)trashTrapPos;
             trash.Heading = trashTrapPos.W;
+            trash.IsPositionFrozen = true;
+            //await wp.Wait();
         })();
         wp = new Utils.Waypoint(duringTrap, van, bufferDistance: 2f);
-        wp.SetDrivingStyle(312);
+        wp.SetDrivingStyle(16777216);
         wp.SetDrivingSpeed(50f);
         wp.Mark(MarkerType.ThickChevronUp);
         wp.Start();
@@ -278,9 +279,9 @@ public class Hostage : Callout
         wp.Start();
         await wp.Wait();
         if (!pointing) return;
-        trash.IsPositionFrozen = true;
         trash.Position = (Vector3)trashTrapPos;
         trash.Heading = trashTrapPos.W;
+        //trash.IsPositionFrozen = true;
         new Action(async () =>
         {
             var busTrapPos = bus.GetOffsetPosition(new(0f, 7f, 0f));
