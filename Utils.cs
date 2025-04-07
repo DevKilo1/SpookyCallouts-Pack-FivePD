@@ -1098,7 +1098,7 @@ Time Captured: {DateTime.Now.ToShortTimeString()}
                 return;
             }
 
-            await BaseScript.Delay(2000);
+            await BaseScript.Delay(100);
         }
     }
 
@@ -1122,7 +1122,7 @@ Time Captured: {DateTime.Now.ToShortTimeString()}
                 return;
             }
 
-            await BaseScript.Delay(2000);
+            await BaseScript.Delay(100);
         }
     }
 
@@ -1140,7 +1140,7 @@ Time Captured: {DateTime.Now.ToShortTimeString()}
             }
 
             startPos = vehicle.Position;
-            await BaseScript.Delay(5000);
+            await BaseScript.Delay(100);
             if (vehicle.Position.DistanceTo(startPos) < 2f)
             {
                 times++;

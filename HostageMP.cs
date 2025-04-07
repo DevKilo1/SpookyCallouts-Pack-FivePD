@@ -25,13 +25,13 @@ public class Hostage : Callout
 
     private Vector4 trashmanPos = new Vector4(-531.43695068359f, 86.500274658203f, 58.741641998291f, 347.7077331543f);
 
-    private Vector3 duringTrap = new Vector3(-469.97265625f, 73.232643127441f, 58.661659240723f);
+    private Vector3 duringTrap = new Vector3(-515.79071044922f, 75.195808410645f, 56.747680664062f);
 
-    private Vector3 duringTrap2 = new Vector3(-465.08413696289f, 64.392013549805f, 58.661449432373f);
+    private Vector3 duringTrap2 = new Vector3(-470.16812133789f, 73.349960327148f, 58.269527435303f);
 
     private Vector3 afterTrap = new Vector3(-463.52752685547f, 64.177223205566f, 58.661483764648f);
 
-    private Vector4 trashTrapPos = new Vector4(-535.81506347656f, 91.156410217285f, 60.266639709473f, 172.18472290039f);
+    private Vector4 trashTrapPos = new Vector4(-538.97637939453f, 78.762672424316f, 55.898891448975f, 177.39318847656f);
 
     private Guid _guid = new("7265A657-17F2-430F-8C4B-C851D8BF83F9");
 
@@ -60,12 +60,10 @@ public class Hostage : Callout
         float scale = 600f;
         if (calloutRadius is not null)
         {
-            Debug.WriteLine("Not null");
             calloutRadius.Position = Location.Around(scale / 4);
         }
         else
         {
-            Debug.WriteLine("Null");
             calloutRadius = World.CreateBlip(Location, scale);
             calloutRadius.Alpha = 80;
             calloutRadius.Color = BlipColor.Red;
@@ -162,6 +160,7 @@ public class Hostage : Callout
         UpdateLocation();
         OnTick();
         bus = await Utils.SpawnVehicleOneSync(VehicleHash.Tourbus, (Vector3)busTrapPos, busTrapPos.W);
+        bus.IsEngineRunning = true;
         trash = await Utils.SpawnVehicleOneSync(VehicleHash.Trash, (Vector3)trashSpawn, trashSpawn.W);
         trashman = await Utils.SpawnPedOneSync(PedHash.GarbageSMY, (Vector3)trashmanPos, true, trashmanPos.W);
         Utils.KeepTaskPlayAnimation(trashman, "amb@prop_human_bum_shopping_cart@male@idle_a", "idle_c");
@@ -219,7 +218,6 @@ public class Hostage : Callout
             once = true;
         }
         
-        
         Debug.WriteLine("Sight gained");
         wp = new Utils.Waypoint(beforeTrap, van, refreshInterval: 2000, bufferDistance: 12f);
         wp.Start();
@@ -252,11 +250,11 @@ public class Hostage : Callout
             // Trap player inside
             var wp = new Utils.Waypoint((Vector3)trashTrapPos, trash, bufferDistance: 2f, refreshInterval: 5000);
             wp.SetDrivingSpeed(30f);
+            wp.SetDrivingStyle(16777216); // Goes straight to destination.
             wp.Start();
-            await Utils.WaitUntilPedIsAtPosition((Vector3)trashTrapPos, Game.PlayerPed, 5f);
+            await Utils.WaitUntilPedIsAtPosition((Vector3)duringTrap, Game.PlayerPed, 5f);
             trash.Position = (Vector3)trashTrapPos;
             trash.Heading = trashTrapPos.W;
-            trash.IsPositionFrozen = true;
             //await wp.Wait();
         })();
         wp = new Utils.Waypoint(duringTrap, van, bufferDistance: 2f);
@@ -272,6 +270,19 @@ public class Hostage : Callout
         wp.Start();
         await wp.Wait();
         if (!pointing) return;
+        new Action(async () =>
+        {
+            var busTrapPos = bus.GetOffsetPosition(new(0f, 7f, 0f));
+            bus.Driver.Task.DriveTo(bus, busTrapPos, 1f, 30f, (int)DrivingStyle.IgnorePathing);
+            await Utils.WaitUntilVehicleIsWithinRadius(busTrapPos, bus, 1f);
+            
+            float h = bus.Heading;
+            bus.Position = busTrapPos;
+            bus.Heading = h;
+            //API.SetVehicleDoorsLocked(bus.Handle, 2);
+            // Disable player
+            
+        })();
         wp = new Utils.Waypoint(afterTrap, van, bufferDistance: 2f);
         //wp.SetDrivingStyle(4456448);
         wp.SetDrivingSpeed(100f);
@@ -282,13 +293,6 @@ public class Hostage : Callout
         trash.Position = (Vector3)trashTrapPos;
         trash.Heading = trashTrapPos.W;
         //trash.IsPositionFrozen = true;
-        new Action(async () =>
-        {
-            var busTrapPos = bus.GetOffsetPosition(new(0f, 7f, 0f));
-            bus.Driver.Task.DriveTo(bus, busTrapPos, 5f, 30f, 21495808);
-            // Disable player
-            
-        })();
         wp = null;
         foreach (var driverAttachedBlip in driver.AttachedBlips)
         {
@@ -332,6 +336,39 @@ public class Hostage : Callout
 
         return Task.FromResult(
             (result));
+    }
+
+    public override void OnCancelBefore()
+    {
+        if (wp is not null)
+        {
+            wp.Unmark();
+            wp.Stop();
+        }
+        foreach (var entity in Utils.EntitiesInMemory.ToArray())
+        {
+            if (entity is null) continue;
+            Utils.ReleaseEntity(entity);
+            if (entity.Model.IsPed)
+            {
+                var ped = entity as Ped;
+                if (!ped.IsCuffed && !ped.IsDead)
+                    ped.Delete();
+                else
+                    ped.MarkAsNoLongerNeeded();
+            } else if (entity.Model.IsVehicle)
+            {
+                var veh = entity as Vehicle;
+                if (veh.Driver is null)
+                    veh.Delete();
+                else
+                    veh.MarkAsNoLongerNeeded();
+            }
+            if (entity is not null)
+                entity.MarkAsNoLongerNeeded();
+        }
+
+        base.OnCancelBefore();
     }
 }
 
